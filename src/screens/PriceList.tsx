@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { ask, Icon, NumInput, toast } from '../components/ui'
 import { uid } from '../lib/calc'
 import { CATEGORIES, UNITS, type Category, type PriceItem } from '../lib/types'
@@ -22,7 +22,7 @@ export function PriceList({ prices, onSave, onDelete }: { prices: PriceItem[]; o
         return (
           <section key={c.id} className="stack" style={{ gap: 8 }}>
             <p className="section-title">{c.label}</p>
-            <div className="card" style={{ padding: '4px 16px' }}>
+            <div className="card" style={{ padding: '2px 14px' }}>
               {items.map((p) => <PriceRow key={p.id} item={p} onSave={onSave} onDelete={onDelete} />)}
               <button className="link-btn" onClick={() => add(c.id)}><Icon name="plus" size={18} /> Pridať položku</button>
             </div>
@@ -41,25 +41,35 @@ function PriceRow({ item, onSave, onDelete }: { item: PriceItem; onSave: (p: Pri
   const now = (patch: Partial<PriceItem>) => { const next = { ...p, ...patch }; setP(next); onSave(next).catch((e) => toast('Neuložené: ' + e.message)) }
   return (
     <div className={p.active ? 'price-row' : 'price-row off'} onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) commit() }}>
-      <div className="name-cell">
-        <div className="row" style={{ gap: 6, flexWrap: 'nowrap' }}>
-          <input aria-label="Názov" value={p.name} onChange={(e) => edit({ name: e.target.value })} />
-          {p.placeholder && <button className="pill pill-warn" title="Potvrdiť cenu" onClick={() => now({ placeholder: false })}>over cenu</button>}
-        </div>
-        <input className="note" aria-label="Popis" placeholder="Popis na ponuke" value={p.note} onChange={(e) => edit({ note: e.target.value })} />
-      </div>
-      <label><span className="muted" style={{ fontSize: 12 }}>€</span>
-        <NumInput aria-label={`Cena: ${p.name}`} value={p.price} onChange={(n) => edit({ price: n, placeholder: false })} />
-      </label>
-      <label className="unit-cell"><span className="muted" style={{ fontSize: 12 }}>za</span>
-        <select aria-label="Jednotka" value={p.unit} onChange={(e) => now({ unit: e.target.value })}>
+      <AutoText className="pr-name" aria-label="Názov" value={p.name} onChange={(v) => edit({ name: v })} />
+      <div className="pr-line">
+        <label className="pr-price">
+          <NumInput aria-label={`Cena: ${p.name}`} value={p.price} onChange={(n) => edit({ price: n, placeholder: false })} />
+          <span>€ /</span>
+        </label>
+        <select className="pr-unit" aria-label="Jednotka" value={p.unit} onChange={(e) => now({ unit: e.target.value })}>
           {[...new Set([...UNITS, p.unit])].map((u) => <option key={u}>{u}</option>)}
         </select>
-      </label>
-      <div className="stack" style={{ gap: 4 }}>
-        <button className="icon-btn" title={p.active ? 'Skryť z ponúk' : 'Zobraziť v ponukách'} aria-label={p.active ? 'Skryť' : 'Zobraziť'} onClick={() => now({ active: !p.active })}><Icon name={p.active ? 'eye' : 'eyeOff'} size={18} /></button>
-        <button className="icon-btn danger" aria-label="Zmazať" onClick={async () => { if (await ask(`Zmazať „${p.name}“ z cenníka?`)) onDelete(p.id) }}><Icon name="trash" size={18} /></button>
+        <span className="grow" />
+        {p.placeholder && <button className="pill pill-warn" title="Potvrdiť cenu" onClick={() => now({ placeholder: false })}>over cenu</button>}
+        <button className="pr-btn" title={p.active ? 'Skryť z ponúk' : 'Zobraziť v ponukách'} aria-label={p.active ? 'Skryť' : 'Zobraziť'} onClick={() => now({ active: !p.active })}><Icon name={p.active ? 'eye' : 'eyeOff'} size={18} /></button>
+        <button className="pr-btn danger" aria-label="Zmazať" onClick={async () => { if (await ask(`Zmazať „${p.name}“ z cenníka?`)) onDelete(p.id) }}><Icon name="trash" size={18} /></button>
       </div>
+      <AutoText className="pr-note" aria-label="Popis" placeholder="+ popis na ponuke" value={p.note} onChange={(v) => edit({ note: v })} />
     </div>
   )
+}
+
+// Text that wraps onto as many lines as it needs, so long names and notes are never cut off.
+function AutoText({ value, onChange, ...rest }: { value: string; onChange: (v: string) => void; className?: string; placeholder?: string; 'aria-label'?: string }) {
+  const ref = useRef<HTMLTextAreaElement>(null)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = el.scrollHeight + 'px'
+  })
+  return <textarea ref={ref} rows={1} value={value} {...rest}
+    onChange={(e) => onChange(e.target.value.replace(/\n/g, ' '))}
+    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur() } }} />
 }
