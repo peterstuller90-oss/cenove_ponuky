@@ -1,3 +1,4 @@
+import { DEFAULT_CONTRACT } from './contractTemplate'
 import type { Category, PriceItem, Settings } from './types'
 
 // Starting price list. Every price is a placeholder (marked "over cenu" in the app) until Peter edits it.
@@ -52,6 +53,20 @@ export const DEFAULT_SETTINGS: Settings = {
     phone: '',
     web: 'instagram.com/stullers_creative',
   },
+  authors: [
+    { name: 'Peter Štuller', born: '', address: 'Trenčín' },
+    { name: '', born: '', address: '' },
+  ],
+  tax: { mode: 'priznanie', expensePct: 60, healthPct: 16, taxPct: 15, withholdPct: 19, pricesAreNet: false },
+  orgTypes: [
+    { label: 'Súkromná osoba', pct: 0 },
+    { label: 'Firma', pct: 20 },
+    { label: 'Mesto / obec / štátna inštitúcia', pct: 0 },
+    { label: 'Škola', pct: -10 },
+    { label: 'Nezisková organizácia / OZ', pct: -15 },
+    { label: 'Festival / kultúrna inštitúcia', pct: -10 },
+  ],
+  contractTemplate: DEFAULT_CONTRACT,
   vatPayer: false,
   vatRate: 23,
   validityDays: 30,
@@ -63,5 +78,5 @@ export const DEFAULT_SETTINGS: Settings = {
     { label: 'Detailný', coef: 1.6 },
   ],
   intro: 'Ďakujeme za záujem o spoluprácu. Na základe vášho zadania posielame cenovú ponuku.',
-  terms: 'Pred začatím práce fakturujeme zálohu. Zvyšok po odovzdaní diela. Ceny murálov platia pri bežne prístupnej stene; pri zhoršenom prístupe alebo poveternostných podmienkach sa termín môže posunúť.',
+  terms: 'Zálohu platíte pri podpise zmluvy, zvyšok po odovzdaní diela. Ceny murálov platia pri bežne prístupnej stene; pri zhoršenom prístupe alebo poveternostných podmienkach sa termín môže posunúť.',
 }

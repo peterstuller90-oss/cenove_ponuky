@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { fmtNum, money, uid } from '../lib/calc'
 import { CATEGORIES, type Category, type Line, type PriceItem, type Settings } from '../lib/types'
-import { NumInput, Sheet } from './ui'
+import { Icon, NumInput, Sheet } from './ui'
 
 type Step = 'menu' | 'design' | 'mural' | 'workshop' | 'pricelist'
 
@@ -24,17 +24,17 @@ export function AddServiceSheet({ prices, settings, onAdd, onClose }: Props) {
     return (
       <Sheet title="Pridať službu" onClose={onClose}>
         <div className="service-grid">
-          <button className="service" onClick={() => { setDesignCat('ilustracia'); setStep('design') }}><span className="emo">🎨</span>Ilustrácia<small>tematická / voľná + produkty</small></button>
-          <button className="service" onClick={() => { setDesignCat('logo'); setStep('design') }}><span className="emo">✒️</span>Logo<small>logo / logotyp + produkty</small></button>
-          <button className="service" onClick={() => setStep('mural')}><span className="emo">🧱</span>Mural<small>veľkosť × zložitosť</small></button>
-          <button className="service" onClick={() => setStep('workshop')}><span className="emo">🖌️</span>Workshop<small>typ a počet ľudí</small></button>
-          <button className="service" onClick={() => setStep('pricelist')}><span className="emo">📋</span>Z cenníka<small>hocijaká položka</small></button>
-          <button className="service" onClick={() => add([line({ name: 'Nová položka' })])}><span className="emo">✏️</span>Vlastná<small>prázdny riadok</small></button>
+          <button className="service" onClick={() => { setDesignCat('ilustracia'); setStep('design') }}><Icon name="illustration" size={32} />Ilustrácia<small>tematická / voľná + produkty</small></button>
+          <button className="service" onClick={() => { setDesignCat('logo'); setStep('design') }}><Icon name="logo" size={32} />Logo<small>logo / logotyp + produkty</small></button>
+          <button className="service" onClick={() => setStep('mural')}><Icon name="mural" size={32} />Mural<small>veľkosť × zložitosť</small></button>
+          <button className="service" onClick={() => setStep('workshop')}><Icon name="workshop" size={32} />Workshop<small>typ a počet ľudí</small></button>
+          <button className="service" onClick={() => setStep('pricelist')}><Icon name="list" size={32} />Z cenníka<small>hocijaká položka</small></button>
+          <button className="service" onClick={() => add([line({ name: 'Nová položka' })])}><Icon name="custom" size={32} />Vlastná<small>prázdny riadok</small></button>
         </div>
       </Sheet>
     )
   }
-  const back = <button className="back-btn" onClick={() => setStep('menu')}>← Späť</button>
+  const back = <button className="back-btn" onClick={() => setStep('menu')}><Icon name="back" size={20} /> Späť</button>
   if (step === 'design') return <DesignStep key={designCat} cat={designCat} base={of(designCat)} products={of('aplikacia')} back={back} onAdd={add} onClose={onClose} />
   if (step === 'mural') return <MuralStep murals={of('mural')} extras={of('doplnky')} settings={settings} back={back} onAdd={add} onClose={onClose} />
   if (step === 'workshop') return <WorkshopStep items={of('workshop')} back={back} onAdd={add} onClose={onClose} />

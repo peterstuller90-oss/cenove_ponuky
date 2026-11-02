@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { DEFAULT_PRICES, DEFAULT_SETTINGS } from './defaults'
 import { totals } from './calc'
-import type { Client, PriceItem, PublicQuote, Quote, Settings } from './types'
+import type { Client, ContractInfo, PriceItem, Quote, Settings } from './types'
 
 export interface Data { settings: Settings; prices: PriceItem[]; clients: Client[]; quotes: Quote[] }
 
@@ -14,13 +14,31 @@ export interface Store {
   saveClient(c: Client): Promise<void>
   saveQuote(q: Quote, s: Settings): Promise<void>
   deleteQuote(id: string): Promise<void>
-  getPublic(token: string): Promise<PublicQuote | null>
-  accept(token: string, name: string): Promise<void>
 }
 
 /** Older saved settings may miss fields added later; fill them from defaults. */
 const withDefaults = (s: Partial<Settings> | null | undefined): Settings => ({
-  ...DEFAULT_SETTINGS, ...s, company: { ...DEFAULT_SETTINGS.company, ...s?.company },
+  ...DEFAULT_SETTINGS, ...s,
+  company: { ...DEFAULT_SETTINGS.company, ...s?.company },
+  tax: { ...DEFAULT_SETTINGS.tax, ...s?.tax },
+})
+
+export const DEFAULT_CONTRACT_INFO: ContractInfo = {
+  place: '',
+  deadline: '',
+  exclusive: false,
+  territory: 'Slovenská republika',
+  duration: 'na dobu trvania majetkových práv autora',
+  uses: 'verejné vystavenie diela, vyhotovenie rozmnoženiny diela (fotografie, video), verejný prenos diela na webe a sociálnych sieťach objednávateľa na účely jeho prezentácie',
+}
+
+/** Quotes saved by older versions miss newer fields. */
+export const normalizeQuote = (q: Quote): Quote => ({
+  ...q,
+  orgType: q.orgType ?? '',
+  orgPct: q.orgPct ?? 0,
+  brief: q.brief ?? [],
+  contract: { ...DEFAULT_CONTRACT_INFO, ...q.contract },
 })
 
 /* ───────── Demo: everything in this browser's localStorage ───────── */
@@ -32,7 +50,7 @@ function readLocal(): Data {
     const raw = localStorage.getItem(KEY)
     if (raw) {
       const d = JSON.parse(raw) as Data
-      return { ...d, settings: withDefaults(d.settings) }
+      return { ...d, settings: withDefaults(d.settings), quotes: d.quotes.map(normalizeQuote) }
     }
   } catch { /* storage blocked or corrupt: start fresh */ }
   return { settings: DEFAULT_SETTINGS, prices: DEFAULT_PRICES, clients: [], quotes: [] }
@@ -55,13 +73,6 @@ function demoStore(): Store {
     saveClient: async (c) => commit({ ...d, clients: upsert(d.clients, c) }),
     saveQuote: async (q) => commit({ ...d, quotes: upsert(d.quotes, q) }),
     deleteQuote: async (id) => commit({ ...d, quotes: d.quotes.filter((q) => q.id !== id) }),
-    getPublic: async (t) => {
-      const quote = d.quotes.find((q) => q.publicToken === t)
-      return quote ? { quote, settings: d.settings } : null
-    },
-    accept: async (t, name) => {
-      commit({ ...d, quotes: d.quotes.map((q) => q.publicToken === t ? { ...q, status: 'prijata', acceptedAt: new Date().toISOString(), acceptedName: name } : q) })
-    },
   }
 }
 
@@ -92,7 +103,7 @@ function cloudStore(sb: SupabaseClient): Store {
         settings: withDefaults(check(s)?.data as Settings | undefined),
         prices,
         clients: check(c) as Client[],
-        quotes: (check(q) as { data: Quote }[]).map((r) => r.data),
+        quotes: (check(q) as { data: Quote }[]).map((r) => normalizeQuote(r.data)),
       }
     },
     async saveSettings(settings) {
@@ -109,11 +120,6 @@ function cloudStore(sb: SupabaseClient): Store {
       }))
     },
     async deleteQuote(id) { check(await sb.from('quotes').delete().eq('id', id)) },
-    async getPublic(t) {
-      const data = check(await sb.rpc('get_public_quote', { p_token: t })) as PublicQuote | null
-      return data ? { quote: data.quote, settings: withDefaults(data.settings) } : null
-    },
-    async accept(t, name) { check(await sb.rpc('accept_quote', { p_token: t, p_name: name })) },
   }
 }
 

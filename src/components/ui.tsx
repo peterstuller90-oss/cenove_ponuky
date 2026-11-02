@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { Icon } from './icons'
 
 /** Built as a claude.ai artifact preview: no printing, no client links, in-memory navigation. */
 export const ARTIFACT = import.meta.env.VITE_ARTIFACT === '1'
@@ -23,7 +24,7 @@ export function Sheet({ onClose, title, children }: { onClose: () => void; title
       <div className="sheet card" role="dialog" aria-label={title} onClick={(e) => e.stopPropagation()}>
         <div className="sheet-head">
           <h3>{title}</h3>
-          <button className="icon-btn" onClick={onClose} aria-label="Zavrieť">✕</button>
+          <button className="icon-btn" onClick={onClose} aria-label="Zavrieť"><Icon name="close" size={20} /></button>
         </div>
         {children}
       </div>
@@ -48,7 +49,7 @@ export function AskHost() {
       <p style={{ fontSize: 20 }}>{state.msg}</p>
       <div className="grid2">
         <button className="btn-secondary" onClick={() => close(false)}>Nie</button>
-        <button className="btn-primary" onClick={() => close(true)}>Áno, zmazať</button>
+        <button className="btn-primary" onClick={() => close(true)}>Áno</button>
       </div>
     </Sheet>
   )
@@ -88,17 +89,4 @@ export function NumInput({ value, onChange, step = 'any', min, ...rest }: {
   )
 }
 
-type IconName = 'quotes' | 'prices' | 'settings' | 'plus'
-const PATHS: Record<IconName, string> = {
-  quotes: 'M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6',
-  prices: 'M3 12l9-9h7v7l-9 9zM15.5 8.5h.01',
-  settings: 'M12 15a3 3 0 100-6 3 3 0 000 6zM19 12l2-1-1-3-2 .2-1.3-1.3.2-2-3-1-1 2h-2l-1-2-3 1 .2 2L6.8 7.2l-2-.2-1 3 2 1v2l-2 1 1 3 2-.2 1.3 1.3-.2 2 3 1 1-2h2l1 2 3-1-.2-2 1.3-1.3 2 .2 1-3-2-1z',
-  plus: 'M12 5v14M5 12h14',
-}
-export function Icon({ name }: { name: IconName }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d={PATHS[name]} />
-    </svg>
-  )
-}
+export { Icon } from './icons'

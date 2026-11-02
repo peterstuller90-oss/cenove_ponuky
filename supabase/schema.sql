@@ -1,6 +1,6 @@
 -- Štullers Ponuky: tables for price quotes.
 -- Safe to run in a shared Supabase project: every object is prefixed quote_ and
--- only e-mails listed in quote_admins can read or change anything.
+-- only e-mails listed in quote_admins can read or change anything. Nothing is public.
 
 create table if not exists public.quote_admins (
   email text primary key
@@ -72,29 +72,5 @@ create policy "admins all" on public.quote_clients for all to authenticated usin
 drop policy if exists "admins all" on public.quotes;
 create policy "admins all" on public.quotes for all to authenticated using ((select public.is_quote_admin())) with check ((select public.is_quote_admin()));
 
--- The client's link: anyone holding the long random token can read that one quote
--- (never a draft) together with the company details, and accept it once.
-create or replace function public.get_public_quote(p_token text) returns jsonb
-language sql stable security definer set search_path = '' as $$
-  select jsonb_build_object('quote', q.data, 'settings', coalesce((select s.data from public.quote_settings s where s.id = 1), '{}'::jsonb))
-  from public.quotes q
-  where q.public_token = p_token and length(p_token) >= 20 and q.status <> 'koncept'
-$$;
-
-create or replace function public.accept_quote(p_token text, p_name text) returns void
-language sql volatile security definer set search_path = '' as $$
-  update public.quotes q set
-    status = 'prijata',
-    accepted_at = now(),
-    accepted_name = left(coalesce(p_name, ''), 120),
-    updated_at = now(),
-    data = q.data || jsonb_build_object('status', 'prijata', 'acceptedAt', now(), 'acceptedName', left(coalesce(p_name, ''), 120))
-  where q.public_token = p_token and length(p_token) >= 20 and q.status = 'odoslana'
-$$;
-
-revoke all on function public.get_public_quote(text) from public;
-revoke all on function public.accept_quote(text, text) from public;
-grant execute on function public.get_public_quote(text) to anon, authenticated;
-grant execute on function public.accept_quote(text, text) to anon, authenticated;
 revoke all on function public.is_quote_admin() from public, anon;
 grant execute on function public.is_quote_admin() to authenticated;

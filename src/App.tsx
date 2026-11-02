@@ -1,19 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
+import { ContractDocument } from './components/ContractDocument'
+import { PriceSummary } from './components/PriceSummary'
 import { QuoteDocument } from './components/QuoteDocument'
 import { ARTIFACT, AskHost, Icon, Logo, Toast, toast } from './components/ui'
 import { addDays, nextNumber, today, token, uid } from './lib/calc'
-import { store, supabase, type Data } from './lib/store'
+import { saveFile } from './lib/download'
+import { briefToQuote } from './lib/importBrief'
+import { DEFAULT_CONTRACT_INFO, store, supabase, type Data } from './lib/store'
 import type { Quote } from './lib/types'
 import { Login } from './screens/Login'
 import { PriceList } from './screens/PriceList'
-import { PublicQuote } from './screens/PublicQuote'
 import { QuoteEditor } from './screens/QuoteEditor'
 import { QuoteList } from './screens/QuoteList'
 import { SettingsScreen } from './screens/SettingsScreen'
 
-const publicToken = ARTIFACT ? null : new URLSearchParams(location.search).get('p')
-export const publicUrl = (t: string) => `${location.origin}${import.meta.env.BASE_URL}?p=${encodeURIComponent(t)}`
 
 // Routes live in the hash (#/ponuka/<id>). The artifact viewer doesn't pass such hashes, so there they stay in memory.
 let memoryPath = '/'
@@ -36,11 +37,6 @@ function NavLink({ to, active, children }: { to: string; active: boolean; childr
 }
 
 export default function App() {
-  if (publicToken) return <PublicQuote token={publicToken} />
-  return <Admin />
-}
-
-function Admin() {
   const [session, setSession] = useState<Session | null | undefined>(supabase ? undefined : null)
   const [allowed, setAllowed] = useState<boolean | undefined>(supabase ? undefined : true)
 
@@ -66,6 +62,8 @@ function Admin() {
 function Workspace() {
   const [data, setData] = useState<Data | null>(null)
   const [error, setError] = useState('')
+  const [busy, setBusy] = useState('')
+  const [warnings, setWarnings] = useState<Record<string, string[]>>({})
   const hash = useHash()
   const latest = useRef(data)
   useEffect(() => { latest.current = data }, [data])
@@ -91,28 +89,68 @@ function Workspace() {
   if (error) return <main className="center-screen"><div className="card login-card"><h2>Chyba</h2><p className="error">{error}</p><button className="btn-primary" onClick={() => { setError(''); reload() }}>Skúsiť znova</button></div></main>
   if (!data) return <main className="center-screen"><div className="spinner" /></main>
 
-  function newQuote(from?: Quote) {
+  function newQuote(from?: Partial<Quote>, warn: string[] = []) {
     const s = data!.settings
     const now = new Date().toISOString()
+    const copy = !!from?.id
     const q: Quote = {
       id: uid(),
       number: nextNumber(data!.quotes.map((x) => x.number), s.numberPrefix),
       status: 'koncept',
       publicToken: token(),
       client: from?.client ?? { name: '', company: '', ico: '', dic: '', address: '', email: '', phone: '' },
-      title: from ? `${from.title} (kópia)` : '',
-      intro: from?.intro ?? s.intro,
+      orgType: from?.orgType ?? '',
+      orgPct: from?.orgPct ?? 0,
+      title: copy ? `${from!.title} (kópia)` : from?.title ?? '',
+      intro: from?.intro ?? '',
       issueDate: today(),
       validUntil: addDays(today(), s.validityDays),
-      lines: from ? from.lines.map((l) => ({ ...l, id: uid() })) : [],
+      lines: (from?.lines ?? []).map((l) => ({ ...l, id: uid() })),
       discountPct: from?.discountPct ?? 0,
       depositPct: from?.depositPct ?? s.depositPct,
       note: from?.note ?? '',
+      brief: from?.brief ?? [],
+      contract: { ...DEFAULT_CONTRACT_INFO, ...from?.contract },
       acceptedAt: null, acceptedName: '',
       createdAt: now, updatedAt: now,
     }
     saveQuote(q).catch((e) => toast('Neuložené: ' + e.message))
+    if (warn.length) setWarnings((w) => ({ ...w, [q.id]: warn }))
     go(`/ponuka/${q.id}`)
+  }
+
+  async function importBrief(file: File) {
+    setBusy('import')
+    try {
+      const { readBriefPdf } = await import('./lib/pdf')
+      const { values, ours } = await readBriefPdf(await file.arrayBuffer())
+      if (!ours && !Object.keys(values).some((k) => k.startsWith('k_') || k.startsWith('p_'))) {
+        toast('Toto PDF nie je naše zadanie. Pošli klientovi formulár z tlačidla „Zadanie pre klienta“.')
+        return
+      }
+      const r = briefToQuote(values, data!.prices, data!.settings) as ReturnType<typeof briefToQuote> & { contractPlace: string }
+      const { warnings: warn, contractPlace, ...patch } = r
+      newQuote({ ...patch, contract: { ...DEFAULT_CONTRACT_INFO, place: contractPlace } }, warn)
+      toast('Zadanie načítané')
+    } catch (e) {
+      toast('PDF sa nepodarilo prečítať: ' + (e instanceof Error ? e.message : ''))
+    } finally { setBusy('') }
+  }
+
+  async function blankBrief() {
+    setBusy('brief')
+    try {
+      const { makeBriefPdf } = await import('./lib/pdf')
+      await saveFile(await makeBriefPdf(data!.settings, data!.prices), 'Stullers-zadanie-projektu.pdf')
+    } catch (e) { toast(e instanceof Error ? e.message : 'Nepodarilo sa to.') } finally { setBusy('') }
+  }
+
+  async function contractPdf(q: Quote) {
+    setBusy('contract')
+    try {
+      const { makeContractPdf } = await import('./lib/pdf')
+      await saveFile(await makeContractPdf(q, data!.settings), `Zmluva-${q.number}.pdf`)
+    } catch (e) { toast(e instanceof Error ? e.message : 'Nepodarilo sa to.') } finally { setBusy('') }
   }
 
   const [, route, id, sub] = hash.split('/')
@@ -120,14 +158,26 @@ function Workspace() {
   const tab = route === 'cennik' ? 'cennik' : route === 'nastavenia' ? 'nastavenia' : 'ponuky'
 
   let screen
-  if (quote && sub === 'nahlad') {
+  const back = (q: Quote) => <button className="back-btn" onClick={() => go(`/ponuka/${q.id}`)}><Icon name="back" size={20} /> Späť na ponuku</button>
+  if (quote && sub === 'zmluva') {
     screen = (
       <>
         <div className="topline no-print">
-          <button className="back-btn" onClick={() => go(`/ponuka/${quote.id}`)}>← Upraviť</button>
+          {back(quote)}
+          <button className="btn-primary btn-sm" disabled={busy === 'contract'} onClick={() => contractPdf(quote)}><Icon name="download" size={18} /> {busy === 'contract' ? 'Pripravujem…' : 'Stiahnuť PDF'}</button>
+        </div>
+        <PriceSummary quote={quote} settings={data.settings} />
+        <div className="doc-wrap"><ContractDocument quote={quote} settings={data.settings} /></div>
+      </>
+    )
+  } else if (quote && sub === 'nahlad') {
+    screen = (
+      <>
+        <div className="topline no-print">
+          {back(quote)}
           {ARTIFACT
-            ? <span className="muted">PDF uložíš v plnej verzii appky</span>
-            : <button className="btn-primary btn-sm" onClick={() => window.print()}>Uložiť PDF / tlačiť</button>}
+            ? <span className="muted">Tlač funguje v plnej verzii appky</span>
+            : <button className="btn-primary btn-sm" onClick={() => window.print()}><Icon name="download" size={18} /> Uložiť PDF / tlačiť</button>}
         </div>
         <div className="doc-wrap"><QuoteDocument quote={quote} settings={data.settings} /></div>
       </>
@@ -135,7 +185,8 @@ function Workspace() {
   } else if (quote) {
     screen = (
       <QuoteEditor key={quote.id} quote={quote} settings={data.settings} prices={data.prices} clients={data.clients}
-        publicUrl={publicUrl(quote.publicToken)} onSave={saveQuote} onBack={() => go('/')} onPreview={() => go(`/ponuka/${quote.id}/nahlad`)}
+        warnings={warnings[quote.id] ?? []}
+        onSave={saveQuote} onBack={() => go('/')} onPreview={() => go(`/ponuka/${quote.id}/nahlad`)} onContract={() => go(`/ponuka/${quote.id}/zmluva`)}
         onDuplicate={() => newQuote(quote)}
         onDelete={async () => { await store.deleteQuote(quote.id); setData({ ...data, quotes: data.quotes.filter((q) => q.id !== quote.id) }); go('/') }} />
     )
@@ -150,7 +201,7 @@ function Workspace() {
       onSave={async (s) => { await store.saveSettings(s); setData({ ...data, settings: s }) }}
       onLogout={supabase ? () => supabase!.auth.signOut() : undefined} />
   } else {
-    screen = <QuoteList quotes={data.quotes} settings={data.settings} onOpen={(qid) => go(`/ponuka/${qid}`)} onNew={() => newQuote()} />
+    screen = <QuoteList quotes={data.quotes} settings={data.settings} busy={busy} onOpen={(qid) => go(`/ponuka/${qid}`)} onNew={() => newQuote()} onImport={importBrief} onBlankBrief={blankBrief} />
   }
 
   return (

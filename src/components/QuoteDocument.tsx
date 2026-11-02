@@ -4,6 +4,12 @@ import type { Quote, Settings } from '../lib/types'
 /** The quote as the client sees it: on screen, printed to PDF, and behind the shared link. */
 export function QuoteDocument({ quote: q, settings: s }: { quote: Quote; settings: Settings }) {
   const t = totals(q, s)
+  // The client sees final prices: the organisation adjustment and any gross-up are folded into each line.
+  const priced = t.subtotal + t.org - t.discount
+  const g = priced ? t.total / priced : 1
+  const k = (1 + (q.orgPct || 0) / 100) * g
+  const shownSubtotal = Math.round(t.subtotal * k * 100) / 100
+  const shownDiscount = Math.round(t.discount * g * 100) / 100
   const c = s.company
   const cl = q.client
   const companyLines = [c.person, c.address, c.ico && `IČO: ${c.ico}`, c.dic && `DIČ: ${c.dic}`, c.icdph && `IČ DPH: ${c.icdph}`, c.email, c.phone, c.web].filter(Boolean)
@@ -53,8 +59,8 @@ export function QuoteDocument({ quote: q, settings: s }: { quote: Quote; setting
                 )}
               </td>
               <td>{fmtNum(l.qty)} {l.unit}</td>
-              <td className="col-unit">{money(l.unitPrice * (l.coef || 1))}</td>
-              <td>{money(lineTotal(l))}</td>
+              <td className="col-unit">{money(l.unitPrice * (l.coef || 1) * k)}</td>
+              <td>{money(lineTotal(l) * k)}</td>
             </tr>
           ))}
         </tbody>
@@ -62,15 +68,13 @@ export function QuoteDocument({ quote: q, settings: s }: { quote: Quote; setting
 
       <table className="doc-sum sum-table">
         <tbody>
-          {(t.discount > 0 || s.vatPayer) && <tr><td>Medzisúčet</td><td>{money(t.subtotal)}</td></tr>}
-          {t.discount > 0 && <tr><td>Zľava {fmtNum(q.discountPct)} %</td><td>−{money(t.discount)}</td></tr>}
-          {s.vatPayer && <tr><td>Základ dane</td><td>{money(t.base)}</td></tr>}
-          {s.vatPayer && <tr><td>DPH {fmtNum(s.vatRate)} %</td><td>{money(t.vat)}</td></tr>}
-          <tr className="grand"><td>Spolu{s.vatPayer ? ' s DPH' : ''}</td><td>{money(t.total)}</td></tr>
+          {t.discount > 0 && <tr><td>Medzisúčet</td><td>{money(shownSubtotal)}</td></tr>}
+          {t.discount > 0 && <tr><td>Zľava {fmtNum(q.discountPct)} %</td><td>−{money(shownDiscount)}</td></tr>}
+          <tr className="grand"><td>Spolu</td><td>{money(t.total)}</td></tr>
           {q.depositPct > 0 && <tr><td>Záloha {fmtNum(q.depositPct)} %</td><td>{money(t.deposit)}</td></tr>}
         </tbody>
       </table>
-      {!s.vatPayer && <p className="muted" style={{ textAlign: 'right', fontSize: 13 }}>Nie sme platcami DPH.</p>}
+      <p className="muted" style={{ textAlign: 'right', fontSize: 13 }}>Nie sme platcami DPH.</p>
 
       <footer className="doc-foot">
         {q.note && <div><h4>Poznámka</h4><p>{q.note}</p></div>}
@@ -78,9 +82,6 @@ export function QuoteDocument({ quote: q, settings: s }: { quote: Quote; setting
         {c.iban && <div><h4>Platba</h4><p>IBAN: {c.iban}</p></div>}
       </footer>
 
-      {q.status === 'prijata' && q.acceptedAt && (
-        <div className="doc-accepted">✓ Ponuku prijal(a) {q.acceptedName || 'klient'} dňa {fmtDate(q.acceptedAt.slice(0, 10))}</div>
-      )}
 
       <div className="doc-sign">
         <span>{c.name} · {c.web}</span>

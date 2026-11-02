@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ask, NumInput, toast } from '../components/ui'
+import { ask, Icon, NumInput, toast } from '../components/ui'
 import { uid } from '../lib/calc'
 import { CATEGORIES, UNITS, type Category, type PriceItem } from '../lib/types'
 
@@ -24,7 +24,7 @@ export function PriceList({ prices, onSave, onDelete }: { prices: PriceItem[]; o
             <p className="section-title">{c.label}</p>
             <div className="card" style={{ padding: '4px 16px' }}>
               {items.map((p) => <PriceRow key={p.id} item={p} onSave={onSave} onDelete={onDelete} />)}
-              <button className="link-btn" onClick={() => add(c.id)}>+ Pridať položku</button>
+              <button className="link-btn" onClick={() => add(c.id)}><Icon name="plus" size={18} /> Pridať položku</button>
             </div>
           </section>
         )
@@ -57,8 +57,8 @@ function PriceRow({ item, onSave, onDelete }: { item: PriceItem; onSave: (p: Pri
         </select>
       </label>
       <div className="stack" style={{ gap: 4 }}>
-        <button className="icon-btn" title={p.active ? 'Skryť z ponúk' : 'Zobraziť v ponukách'} aria-label={p.active ? 'Skryť' : 'Zobraziť'} onClick={() => now({ active: !p.active })}>{p.active ? '👁' : '—'}</button>
-        <button className="icon-btn danger" aria-label="Zmazať" onClick={async () => { if (await ask(`Zmazať „${p.name}“ z cenníka?`)) onDelete(p.id) }}>✕</button>
+        <button className="icon-btn" title={p.active ? 'Skryť z ponúk' : 'Zobraziť v ponukách'} aria-label={p.active ? 'Skryť' : 'Zobraziť'} onClick={() => now({ active: !p.active })}><Icon name={p.active ? 'eye' : 'eyeOff'} size={18} /></button>
+        <button className="icon-btn danger" aria-label="Zmazať" onClick={async () => { if (await ask(`Zmazať „${p.name}“ z cenníka?`)) onDelete(p.id) }}><Icon name="trash" size={18} /></button>
       </div>
     </div>
   )
