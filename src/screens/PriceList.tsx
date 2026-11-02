@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { NumInput, toast } from '../components/ui'
+import { ask, NumInput, toast } from '../components/ui'
 import { uid } from '../lib/calc'
 import { CATEGORIES, UNITS, type Category, type PriceItem } from '../lib/types'
 
@@ -58,7 +58,7 @@ function PriceRow({ item, onSave, onDelete }: { item: PriceItem; onSave: (p: Pri
       </label>
       <div className="stack" style={{ gap: 4 }}>
         <button className="icon-btn" title={p.active ? 'Skryť z ponúk' : 'Zobraziť v ponukách'} aria-label={p.active ? 'Skryť' : 'Zobraziť'} onClick={() => now({ active: !p.active })}>{p.active ? '👁' : '—'}</button>
-        <button className="icon-btn danger" aria-label="Zmazať" onClick={() => { if (confirm(`Zmazať „${p.name}“ z cenníka?`)) onDelete(p.id) }}>✕</button>
+        <button className="icon-btn danger" aria-label="Zmazať" onClick={async () => { if (await ask(`Zmazať „${p.name}“ z cenníka?`)) onDelete(p.id) }}>✕</button>
       </div>
     </div>
   )

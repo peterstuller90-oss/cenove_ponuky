@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { QuoteDocument } from './components/QuoteDocument'
-import { Icon, Logo, Toast, toast } from './components/ui'
+import { ARTIFACT, AskHost, Icon, Logo, Toast, toast } from './components/ui'
 import { addDays, nextNumber, today, token, uid } from './lib/calc'
 import { store, supabase, type Data } from './lib/store'
 import type { Quote } from './lib/types'
@@ -12,19 +12,28 @@ import { QuoteEditor } from './screens/QuoteEditor'
 import { QuoteList } from './screens/QuoteList'
 import { SettingsScreen } from './screens/SettingsScreen'
 
-const publicToken = new URLSearchParams(location.search).get('p')
+const publicToken = ARTIFACT ? null : new URLSearchParams(location.search).get('p')
 export const publicUrl = (t: string) => `${location.origin}${import.meta.env.BASE_URL}?p=${encodeURIComponent(t)}`
 
+// Routes live in the hash (#/ponuka/<id>). The artifact viewer doesn't pass such hashes, so there they stay in memory.
+let memoryPath = '/'
+const current = () => (ARTIFACT ? memoryPath : location.hash.slice(1) || '/')
 function useHash() {
-  const [hash, setHash] = useState(location.hash.slice(1) || '/')
+  const [hash, setHash] = useState(current)
   useEffect(() => {
-    const on = () => { setHash(location.hash.slice(1) || '/'); window.scrollTo(0, 0) }
+    const on = () => { setHash(current()); window.scrollTo(0, 0) }
     window.addEventListener('hashchange', on)
-    return () => window.removeEventListener('hashchange', on)
+    window.addEventListener('memoryroute', on)
+    return () => { window.removeEventListener('hashchange', on); window.removeEventListener('memoryroute', on) }
   }, [])
   return hash
 }
-const go = (path: string) => { location.hash = path }
+const go = (path: string) => {
+  if (ARTIFACT) { memoryPath = path; window.dispatchEvent(new Event('memoryroute')) } else location.hash = path
+}
+function NavLink({ to, active, children }: { to: string; active: boolean; children: React.ReactNode }) {
+  return <a href={`#${to}`} className={active ? 'tab active' : 'tab'} onClick={(e) => { if (ARTIFACT) { e.preventDefault(); go(to) } }}>{children}</a>
+}
 
 export default function App() {
   if (publicToken) return <PublicQuote token={publicToken} />
@@ -116,7 +125,9 @@ function Workspace() {
       <>
         <div className="topline no-print">
           <button className="back-btn" onClick={() => go(`/ponuka/${quote.id}`)}>← Upraviť</button>
-          <button className="btn-primary btn-sm" onClick={() => window.print()}>Uložiť PDF / tlačiť</button>
+          {ARTIFACT
+            ? <span className="muted">PDF uložíš v plnej verzii appky</span>
+            : <button className="btn-primary btn-sm" onClick={() => window.print()}>Uložiť PDF / tlačiť</button>}
         </div>
         <div className="doc-wrap"><QuoteDocument quote={quote} settings={data.settings} /></div>
       </>
@@ -151,11 +162,12 @@ function Workspace() {
       </main>
       <nav className="tabbar no-print">
         <div className="brand-mini"><img src={`${import.meta.env.BASE_URL}logo.png`} alt="Štullers" /></div>
-        <a href="#/" className={tab === 'ponuky' ? 'tab active' : 'tab'}><Icon name="quotes" /><span>Ponuky</span></a>
-        <a href="#/cennik" className={tab === 'cennik' ? 'tab active' : 'tab'}><Icon name="prices" /><span>Cenník</span></a>
-        <a href="#/nastavenia" className={tab === 'nastavenia' ? 'tab active' : 'tab'}><Icon name="settings" /><span>Nastavenia</span></a>
+        <NavLink to="/" active={tab === 'ponuky'}><Icon name="quotes" /><span>Ponuky</span></NavLink>
+        <NavLink to="/cennik" active={tab === 'cennik'}><Icon name="prices" /><span>Cenník</span></NavLink>
+        <NavLink to="/nastavenia" active={tab === 'nastavenia'}><Icon name="settings" /><span>Nastavenia</span></NavLink>
       </nav>
       <Toast />
+      <AskHost />
     </div>
   )
 }

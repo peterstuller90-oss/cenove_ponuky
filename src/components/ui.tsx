@@ -1,5 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react'
 
+/** Built as a claude.ai artifact preview: no printing, no client links, in-memory navigation. */
+export const ARTIFACT = import.meta.env.VITE_ARTIFACT === '1'
+
 export function Logo({ width = 200, label = 'Ponuky' }: { width?: number; label?: string }) {
   return (
     <div className="brand-logo">
@@ -30,6 +33,26 @@ export function Sheet({ onClose, title, children }: { onClose: () => void; title
 
 let showToast: (msg: string) => void = () => {}
 export const toast = (msg: string) => showToast(msg)
+
+let showAsk: (msg: string, done: (ok: boolean) => void) => void = (_m, done) => done(false)
+/** In-page replacement for confirm(), which some hosts (the artifact viewer) silently block. */
+export const ask = (msg: string) => new Promise<boolean>((resolve) => showAsk(msg, resolve))
+
+export function AskHost() {
+  const [state, setState] = useState<{ msg: string; done: (ok: boolean) => void } | null>(null)
+  useEffect(() => { showAsk = (msg, done) => setState({ msg, done }) }, [])
+  if (!state) return null
+  const close = (ok: boolean) => { state.done(ok); setState(null) }
+  return (
+    <Sheet title="Naozaj?" onClose={() => close(false)}>
+      <p style={{ fontSize: 20 }}>{state.msg}</p>
+      <div className="grid2">
+        <button className="btn-secondary" onClick={() => close(false)}>Nie</button>
+        <button className="btn-primary" onClick={() => close(true)}>Áno, zmazať</button>
+      </div>
+    </Sheet>
+  )
+}
 
 export function Toast() {
   const [msg, setMsg] = useState('')

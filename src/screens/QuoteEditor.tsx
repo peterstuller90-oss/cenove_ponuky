@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { AddServiceSheet } from '../components/AddServiceSheet'
-import { NumInput, toast } from '../components/ui'
+import { ARTIFACT, ask, NumInput, toast } from '../components/ui'
 import { fmtNum, lineTotal, money, totals } from '../lib/calc'
 import { STATUSES, UNITS, type Client, type Line, type PriceItem, type Quote, type Settings } from '../lib/types'
 
@@ -56,7 +56,7 @@ export function QuoteEditor({ quote, settings, prices, clients, onSave, onBack, 
     if (navigator.share) {
       try { await navigator.share({ title: `Cenová ponuka ${q.number}`, text: `Cenová ponuka od ${settings.company.name}`, url: publicUrl }); return } catch { /* cancelled: fall back to copy */ }
     }
-    try { await navigator.clipboard.writeText(publicUrl); toast('Odkaz pre klienta skopírovaný') } catch { prompt('Odkaz pre klienta:', publicUrl) }
+    try { await navigator.clipboard.writeText(publicUrl); toast('Odkaz pre klienta skopírovaný') } catch { toast(publicUrl) }
   }
 
   return (
@@ -150,10 +150,12 @@ export function QuoteEditor({ quote, settings, prices, clients, onSave, onBack, 
 
       <div className="stack no-print">
         <button className="btn-primary" onClick={() => onSave(q, true).then(onPreview)}>Náhľad a PDF</button>
-        <button className="btn-secondary" onClick={share}>Poslať odkaz klientovi</button>
+        {ARTIFACT
+          ? <p className="muted" style={{ textAlign: 'center' }}>Odkaz pre klienta funguje v plnej verzii appky.</p>
+          : <button className="btn-secondary" onClick={share}>Poslať odkaz klientovi</button>}
         <div className="row" style={{ justifyContent: 'center' }}>
           <button className="link-btn" onClick={onDuplicate}>Duplikovať</button>
-          <button className="link-btn" style={{ color: 'var(--accent-dark)' }} onClick={() => { if (confirm(`Naozaj zmazať ponuku ${q.number}?`)) onDelete() }}>Zmazať</button>
+          <button className="link-btn" style={{ color: 'var(--accent-dark)' }} onClick={async () => { if (await ask(`Zmazať ponuku ${q.number}?`)) onDelete() }}>Zmazať</button>
         </div>
       </div>
 
