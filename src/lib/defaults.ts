@@ -1,3 +1,4 @@
+import { slug } from './calc'
 import { DEFAULT_CONTRACT } from './contractTemplate'
 import type { Category, PriceItem, Settings } from './types'
 
@@ -9,17 +10,17 @@ const SEED: Seed[] = [
   ['ilustracia', 'Voľná ilustrácia', 'paušál', 250, 'Autorská ilustrácia v štýle Štullers'],
   ['logo', 'Logo / logotyp', 'paušál', 450, 'Návrh, 2 kolá pripomienok, finálne dáta'],
 
-  ['aplikacia', 'Tričko', 'ks', 40, 'Úprava návrhu na produkt'],
-  ['aplikacia', 'Taška', 'ks', 40, 'Úprava návrhu na produkt'],
-  ['aplikacia', 'Čiapka', 'ks', 35, 'Úprava návrhu na produkt'],
-  ['aplikacia', 'Šiltovka', 'ks', 35, 'Úprava návrhu na produkt'],
-  ['aplikacia', 'Mikina', 'ks', 45, 'Úprava návrhu na produkt'],
-  ['aplikacia', 'Nohavice', 'ks', 40, 'Úprava návrhu na produkt'],
-  ['aplikacia', 'Kraťasy', 'ks', 40, 'Úprava návrhu na produkt'],
-  ['aplikacia', 'Nálepky', 'ks', 30, 'Úprava návrhu na produkt'],
-  ['aplikacia', 'Zimná čiapka', 'ks', 35, 'Úprava návrhu na produkt'],
-  ['aplikacia', 'Bufka', 'ks', 35, 'Úprava návrhu na produkt'],
-  ['aplikacia', 'Office produkty', 'ks', 60, 'Vizitky, hlavičkový papier, podpis do e-mailu… (pri voľnej ilustrácii a logu)'],
+  ['aplikacia', 'Tričko', 'ks', 20, 'Vizualizácia návrhu na produkte'],
+  ['aplikacia', 'Taška', 'ks', 20, 'Vizualizácia návrhu na produkte'],
+  ['aplikacia', 'Čiapka', 'ks', 20, 'Vizualizácia návrhu na produkte'],
+  ['aplikacia', 'Šiltovka', 'ks', 20, 'Vizualizácia návrhu na produkte'],
+  ['aplikacia', 'Mikina', 'ks', 20, 'Vizualizácia návrhu na produkte'],
+  ['aplikacia', 'Nohavice', 'ks', 20, 'Vizualizácia návrhu na produkte'],
+  ['aplikacia', 'Kraťasy', 'ks', 20, 'Vizualizácia návrhu na produkte'],
+  ['aplikacia', 'Nálepky', 'ks', 20, 'Vizualizácia návrhu na produkte'],
+  ['aplikacia', 'Zimná čiapka', 'ks', 20, 'Vizualizácia návrhu na produkte'],
+  ['aplikacia', 'Bufka', 'ks', 20, 'Vizualizácia návrhu na produkte'],
+  ['aplikacia', 'Office produkty', 'ks', 30, 'Vizitky, hlavičkový papier, podpis do e-mailu… (pri voľnej ilustrácii a logu)'],
 
   ['mural', 'Voľný mural', 'm²', 70, 'Autorský motív'],
   ['mural', 'Tematický mural', 'm²', 90, 'Motív na zadanie klienta'],
@@ -42,6 +43,15 @@ const SEED: Seed[] = [
 export const DEFAULT_PRICES: PriceItem[] = SEED.map(([category, name, unit, price, note], i) => ({
   id: `seed-${i + 1}`, category, name, unit, price, note: note ?? '', sort: i, active: true, placeholder: true,
 }))
+
+/** Print-ready files, one per product from the mockup list (placeholder prices). */
+export function printPrepFor(products: PriceItem[], startSort: number): PriceItem[] {
+  return products.map((p, i) => ({
+    id: `tlac-${slug(p.name)}`, category: 'tlac', name: p.name, unit: 'ks', price: /office/i.test(p.name) ? 60 : 40,
+    note: 'Finálne tlačové dáta pre výrobcu', sort: startSort + i, active: p.active, placeholder: true,
+  }))
+}
+DEFAULT_PRICES.push(...printPrepFor(DEFAULT_PRICES.filter((p) => p.category === 'aplikacia'), DEFAULT_PRICES.length))
 
 export const DEFAULT_SETTINGS: Settings = {
   company: {
@@ -77,6 +87,7 @@ export const DEFAULT_SETTINGS: Settings = {
     { label: 'Stredný', coef: 1.3 },
     { label: 'Detailný', coef: 1.6 },
   ],
+  freebies: { tshirtMockups: 1, otherMockups: 2, printPreps: 1 },
   intro: 'Ďakujeme za záujem o spoluprácu. Na základe vášho zadania posielame cenovú ponuku.',
   terms: 'Zálohu platíte pri podpise zmluvy, zvyšok po odovzdaní diela. Ceny murálov platia pri bežne prístupnej stene; pri zhoršenom prístupe alebo poveternostných podmienkach sa termín môže posunúť.',
 }

@@ -91,6 +91,7 @@ h1, h2, h3, h4, p { margin: 0; font-weight: 500; }
 .st-prijata { background: var(--mint); }
 .st-zamietnuta { background: var(--pink); color: var(--accent-dark); }
 .pill-warn { background: var(--sun); font-size: 12px; padding: 1px 8px; }
+.pill-free { background: var(--mint, #acffd3); font-size: 11px; padding: 0 7px; border-width: 1.5px; vertical-align: middle; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip { border: var(--border); background: var(--card); border-radius: 99px; padding: 7px 14px; font-size: 17px; text-transform: uppercase; }
 .chip.on { background: var(--ink); color: #fff; }

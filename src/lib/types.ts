@@ -1,10 +1,11 @@
-export type Category = 'ilustracia' | 'logo' | 'mural' | 'aplikacia' | 'workshop' | 'doplnky' | 'ine'
+export type Category = 'ilustracia' | 'logo' | 'mural' | 'aplikacia' | 'tlac' | 'workshop' | 'doplnky' | 'ine'
 
 export const CATEGORIES: { id: Category; label: string }[] = [
   { id: 'ilustracia', label: 'Ilustrácia' },
   { id: 'logo', label: 'Logo / logotyp' },
   { id: 'mural', label: 'Mural' },
-  { id: 'aplikacia', label: 'Aplikácia na produkty' },
+  { id: 'aplikacia', label: 'Mockupy na produkty' },
+  { id: 'tlac', label: 'Príprava do tlače' },
   { id: 'workshop', label: 'Workshop' },
   { id: 'doplnky', label: 'Doplnky (materiál, doprava…)' },
   { id: 'ine', label: 'Iné' },
@@ -23,6 +24,16 @@ export interface PriceItem {
   active: boolean
   /** True while the price is Claude's guess and has not been confirmed by Peter. */
   placeholder: boolean
+}
+
+/** What every client gets for free with a design. */
+export interface Freebies {
+  /** Mockups on a T-shirt. */
+  tshirtMockups: number
+  /** Mockups on any product the client picks. */
+  otherMockups: number
+  /** Print-ready files for one product. */
+  printPreps: number
 }
 
 export interface Complexity { label: string; coef: number }
@@ -72,6 +83,7 @@ export interface Settings {
   depositPct: number
   numberPrefix: string
   complexity: Complexity[]
+  freebies: Freebies
   intro: string
   terms: string
   contractTemplate: string
@@ -98,6 +110,10 @@ export interface Line {
   /** Multiplier, e.g. mural complexity. 1 when unused. */
   coef: number
   coefLabel: string
+  /** Mockup of the design on a product, or print-ready files for a product. Drives the free allowance. */
+  kind?: 'mockup' | 'tlac'
+  /** Units given for free (set automatically by applyFreebies). */
+  free?: number
 }
 
 export type Status = 'koncept' | 'odoslana' | 'prijata' | 'zamietnuta'

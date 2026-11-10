@@ -88,6 +88,16 @@ export function SettingsScreen({ settings, onSave, demo, onLogout }: { settings:
         <button className="link-btn" style={{ alignSelf: 'flex-start' }} onClick={() => set({ orgTypes: [...s.orgTypes, { label: 'Nový typ', pct: 0 }] })}>+ Pridať typ</button>
       </div>
 
+      <Head icon="illustration" title="Zadarmo ku návrhu" />
+      <div className="card pad stack">
+        <p className="hint">Každý klient dostane ku ilustrácii alebo logu mockupy a jednu prípravu do tlače zadarmo. Ďalšie sú platené podľa cenníka. Appka to v ponuke odráta sama.</p>
+        <div className="grid3">
+          <label className="field"><span>Mockup na tričko</span><NumInput value={s.freebies.tshirtMockups} onChange={(n) => set({ freebies: { ...s.freebies, tshirtMockups: n } })} /></label>
+          <label className="field"><span>Mockup na produkt klienta</span><NumInput value={s.freebies.otherMockups} onChange={(n) => set({ freebies: { ...s.freebies, otherMockups: n } })} /></label>
+          <label className="field"><span>Príprava do tlače</span><NumInput value={s.freebies.printPreps} onChange={(n) => set({ freebies: { ...s.freebies, printPreps: n } })} /></label>
+        </div>
+      </div>
+
       <Head icon="mural" title="Zložitosť murálu" />
       <div className="card pad stack">
         {s.complexity.map((c, i) => (

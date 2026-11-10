@@ -20,6 +20,7 @@ export const BRIEF_MARK = 'stullers-zadanie-v1'
 export function briefSections(s: Settings, prices: PriceItem[]): SectionDef[] {
   const active = prices.filter((p) => p.active)
   const products = active.filter((p) => p.category === 'aplikacia')
+  const prints = active.filter((p) => p.category === 'tlac')
   const workshops = active.filter((p) => p.category === 'workshop')
   return [
     {
@@ -67,8 +68,14 @@ export function briefSections(s: Settings, prices: PriceItem[]): SectionDef[] {
       ],
     },
     {
-      title: 'Kde ilustráciu alebo logo použijete?',
+      title: 'Na akých produktoch chcete návrh vidieť? (mockup)',
+      hint: `Ku každému návrhu dostanete zadarmo ${mockupHint(s)}. Ďalšie mockupy si môžete objednať.`,
       fields: products.map((p) => ({ id: `a_${slug(p.name)}`, label: p.name, kind: 'check' as const, w: 1 / 3 })),
+    },
+    {
+      title: 'Pripravíme vám aj dáta do tlače?',
+      hint: 'Finálne tlačové podklady pre výrobcu. Zaškrtnite produkty, ktoré naozaj pôjdu do výroby.',
+      fields: prints.map((p) => ({ id: `t_${slug(p.name)}`, label: p.name, kind: 'check' as const, w: 1 / 3 })),
     },
     {
       title: 'Workshop',
@@ -84,6 +91,12 @@ export function briefSections(s: Settings, prices: PriceItem[]): SectionDef[] {
       fields: [{ id: 'poznamka', label: 'Poznámky, inšpirácie, odkazy', kind: 'multiline', w: 1, h: 90 }],
     },
   ]
+}
+
+function mockupHint(s: Settings) {
+  const f = s.freebies
+  const parts = [f.tshirtMockups ? `${f.tshirtMockups}× mockup na tričku` : '', f.otherMockups ? `${f.otherMockups}× mockup na produkte, ktorý si vyberiete` : ''].filter(Boolean)
+  return parts.join(' a ') || 'mockup podľa dohody'
 }
 
 export type BriefValues = Record<string, string | boolean>

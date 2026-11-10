@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { fmtNum, money, uid } from '../lib/calc'
+import { applyFreebies, fmtNum, lineTotal, money, productLine, uid } from '../lib/calc'
 import { CATEGORIES, type Category, type Line, type PriceItem, type Settings } from '../lib/types'
 import { Icon, NumInput, Sheet } from './ui'
 
@@ -9,7 +9,7 @@ const line = (p: Partial<Line> & Pick<Line, 'name'>): Line => ({
   id: uid(), description: '', qty: 1, unit: 'paušál', unitPrice: 0, coef: 1, coefLabel: '', ...p,
 })
 const fromItem = (it: PriceItem, extra: Partial<Line> = {}) =>
-  line({ name: it.name, description: it.note, unit: it.unit, unitPrice: it.price, ...extra })
+  line({ ...productLine(it.category, it.name), description: it.note, unit: it.unit, unitPrice: it.price, ...extra })
 
 interface Props { prices: PriceItem[]; settings: Settings; onAdd: (lines: Line[]) => void; onClose: () => void }
 
@@ -35,7 +35,7 @@ export function AddServiceSheet({ prices, settings, onAdd, onClose }: Props) {
     )
   }
   const back = <button className="back-btn" onClick={() => setStep('menu')}><Icon name="back" size={20} /> Späť</button>
-  if (step === 'design') return <DesignStep key={designCat} cat={designCat} base={of(designCat)} products={of('aplikacia')} back={back} onAdd={add} onClose={onClose} />
+  if (step === 'design') return <DesignStep key={designCat} cat={designCat} base={of(designCat)} products={of('aplikacia')} prints={of('tlac')} settings={settings} back={back} onAdd={add} onClose={onClose} />
   if (step === 'mural') return <MuralStep murals={of('mural')} extras={of('doplnky')} settings={settings} back={back} onAdd={add} onClose={onClose} />
   if (step === 'workshop') return <WorkshopStep items={of('workshop')} back={back} onAdd={add} onClose={onClose} />
   return (
@@ -57,14 +57,23 @@ export function AddServiceSheet({ prices, settings, onAdd, onClose }: Props) {
 
 interface StepProps { back: React.ReactNode; onAdd: (l: Line[]) => void; onClose: () => void }
 
-function DesignStep({ cat, base, products, back, onAdd, onClose }: StepProps & { cat: Category; base: PriceItem[]; products: PriceItem[] }) {
+function DesignStep({ cat, base, products, prints, settings, back, onAdd, onClose }: StepProps & { cat: Category; base: PriceItem[]; products: PriceItem[]; prints: PriceItem[]; settings: Settings }) {
   const [pick, setPick] = useState(base[0]?.id ?? '')
   const [count, setCount] = useState(1)
-  const [chosen, setChosen] = useState<string[]>([])
+  const tee = products.find((p) => /trič|tric/i.test(p.name))
+  const [chosen, setChosen] = useState<string[]>(tee ? [tee.id] : [])
+  const [printing, setPrinting] = useState<string[]>([])
   const item = base.find((b) => b.id === pick)
-  const sel = products.filter((p) => chosen.includes(p.id))
-  const sum = (item ? item.price * count : 0) + sel.reduce((s, p) => s + p.price, 0)
-  const toggle = (id: string) => setChosen((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]))
+  const lines = item ? applyFreebies([
+    fromItem(item, { qty: count, unit: count > 1 ? 'ks' : item.unit }),
+    // T-shirt first, so its free mockup is counted before the client's picks.
+    ...products.filter((p) => chosen.includes(p.id)).sort((a, b) => Number(b === tee) - Number(a === tee)).map((p) => fromItem(p)),
+    ...prints.filter((p) => printing.includes(p.id)).map((p) => fromItem(p)),
+  ], settings.freebies) : []
+  const sum = lines.reduce((s, l) => s + lineTotal(l), 0)
+  const freeCount = lines.reduce((s, l) => s + (l.free ?? 0), 0)
+  const toggle = (set: typeof setChosen) => (id: string) => set((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]))
+  const f = settings.freebies
   return (
     <Sheet title={cat === 'logo' ? 'Logo / logotyp' : 'Ilustrácia'} onClose={onClose}>
       {back}
@@ -75,17 +84,24 @@ function DesignStep({ cat, base, products, back, onAdd, onClose }: StepProps & {
       )}
       {base.length === 0 && <p className="muted">V cenníku nie je žiadna položka v tejto kategórii.</p>}
       <label className="field"><span>Počet návrhov</span><NumInput value={count} onChange={setCount} min={1} /></label>
-      <p className="section-title">Aplikácia na produkty</p>
+      <p className="section-title">Mockupy</p>
+      <p className="hint">Zadarmo: {f.tshirtMockups}× tričko + {f.otherMockups}× produkt podľa klienta.</p>
       <div className="chips">
         {products.map((p) => (
-          <button key={p.id} className={chosen.includes(p.id) ? 'chip on' : 'chip'} aria-pressed={chosen.includes(p.id)} onClick={() => toggle(p.id)}>{p.name}</button>
+          <button key={p.id} className={chosen.includes(p.id) ? 'chip on' : 'chip'} aria-pressed={chosen.includes(p.id)} onClick={() => toggle(setChosen)(p.id)}>{p.name}</button>
         ))}
       </div>
-      <div className="calc-preview"><span>Spolu</span><strong>{money(sum)}</strong></div>
-      <button className="btn-primary" disabled={!item} onClick={() => item && onAdd([
-        fromItem(item, { qty: count, unit: count > 1 ? 'ks' : item.unit }),
-        ...sel.map((p) => fromItem(p, { name: `Aplikácia na: ${p.name}` })),
-      ])}>Pridať do ponuky</button>
+      {prints.length > 0 && <>
+        <p className="section-title">Príprava do tlače</p>
+        <p className="hint">Platená, zadarmo je {f.printPreps}× pre jeden produkt.</p>
+        <div className="chips">
+          {prints.map((p) => (
+            <button key={p.id} className={printing.includes(p.id) ? 'chip on' : 'chip'} aria-pressed={printing.includes(p.id)} onClick={() => toggle(setPrinting)(p.id)}>{p.name}</button>
+          ))}
+        </div>
+      </>}
+      <div className="calc-preview"><span>Spolu{freeCount > 0 ? ` (${fmtNum(freeCount)}× zadarmo)` : ''}</span><strong>{money(sum)}</strong></div>
+      <button className="btn-primary" disabled={!item} onClick={() => onAdd(lines)}>Pridať do ponuky</button>
     </Sheet>
   )
 }

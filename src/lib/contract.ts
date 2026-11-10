@@ -27,7 +27,7 @@ export function contractValues(q: Quote, s: Settings): Record<string, string> {
     objednavatel: objednavatel || '…',
     nazov_diela: q.title || '…',
     popis_diela: q.intro || '…',
-    polozky: q.lines.filter((l) => l.qty > 0).map((l) => `– ${l.name}${l.description ? ` (${l.description})` : ''}: ${fmtNum(l.qty)} ${l.unit}`).join('\n') || '–',
+    polozky: q.lines.filter((l) => l.qty > 0).map((l) => `– ${l.name}${l.description ? ` (${l.description})` : ''}: ${fmtNum(l.qty)} ${l.unit}${l.free ? (l.free >= l.qty ? ' (zadarmo)' : ` (z toho ${fmtNum(l.free)} zadarmo)`) : ''}`).join('\n') || '–',
     miesto: q.contract.place || '…',
     termin: q.contract.deadline ? fmtDate(q.contract.deadline) : '…',
     odmena: money(t.total),

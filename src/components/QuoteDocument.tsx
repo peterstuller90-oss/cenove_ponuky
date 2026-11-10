@@ -54,8 +54,8 @@ export function QuoteDocument({ quote: q, settings: s }: { quote: Quote; setting
             <tr key={l.id}>
               <td>
                 {l.name}
-                {(l.description || (l.coef !== 1 && l.coefLabel)) && (
-                  <small>{[l.description, l.coef !== 1 && l.coefLabel ? `${l.coefLabel} (×${fmtNum(l.coef)})` : ''].filter(Boolean).join(' · ')}</small>
+                {(l.description || (l.coef !== 1 && l.coefLabel) || !!l.free) && (
+                  <small>{[l.description, l.coef !== 1 && l.coefLabel ? `${l.coefLabel} (×${fmtNum(l.coef)})` : '', l.free ? `${l.free >= l.qty ? 'zadarmo' : `z toho ${fmtNum(l.free)} ${l.unit} zadarmo`} ku návrhu` : ''].filter(Boolean).join(' · ')}</small>
                 )}
               </td>
               <td>{fmtNum(l.qty)} {l.unit}</td>

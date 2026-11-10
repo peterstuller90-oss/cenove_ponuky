@@ -3,7 +3,7 @@ import { AddServiceSheet } from '../components/AddServiceSheet'
 import { PriceSummary } from '../components/PriceSummary'
 import { ask, Icon, NumInput, toast } from '../components/ui'
 import type { IconName } from '../components/icons'
-import { fmtNum, lineTotal, money } from '../lib/calc'
+import { applyFreebies, fmtNum, lineTotal, money } from '../lib/calc'
 import { STATUSES, UNITS, type Client, type ContractInfo, type Line, type PriceItem, type Quote, type Settings } from '../lib/types'
 
 interface Props {
@@ -45,6 +45,12 @@ export function QuoteEditor({ quote, settings, prices, clients, warnings, onSave
     const t = setTimeout(() => { onSave({ ...q, updatedAt: new Date().toISOString() }).then(() => setSaved(true)).catch((e) => toast('Neuložené: ' + e.message)) }, 700)
     return () => clearTimeout(t)
   }, [q, onSave])
+
+  // Free mockups and print prep follow the lines: recount whenever lines change.
+  useEffect(() => {
+    const lines = applyFreebies(q.lines, settings.freebies)
+    if (lines !== q.lines) setQ((x) => ({ ...x, lines }))
+  }, [q.lines, settings.freebies])
 
   const set = (patch: Partial<Quote>) => setQ((x) => ({ ...x, ...patch }))
   const setClient = (patch: Partial<Quote['client']>) => setQ((x) => ({ ...x, client: { ...x.client, ...patch } }))
@@ -159,6 +165,7 @@ export function QuoteEditor({ quote, settings, prices, clients, warnings, onSave
                 <label className="field"><span>Cena / j. (€)</span><NumInput value={l.unitPrice} onChange={(n) => setLine(l.id, { unitPrice: n })} /></label>
                 <label className="field"><span>Násobok</span><NumInput value={l.coef} onChange={(n) => setLine(l.id, { coef: n || 1 })} /></label>
               </div>
+              {!!l.free && <p className="hint">{fmtNum(l.free)} {l.unit} zadarmo ku návrhu (pravidlo v Nastaveniach).</p>}
               <div className="row" style={{ justifyContent: 'space-between' }}>
                 <button className="link-btn" onClick={() => setOpen(null)}><Icon name="check" size={18} /> Hotovo</button>
                 <strong className="num" style={{ fontSize: 20 }}>{money(lineTotal(l))}</strong>
@@ -167,7 +174,7 @@ export function QuoteEditor({ quote, settings, prices, clients, warnings, onSave
           ) : (
             <button key={l.id} className="line-row" onClick={() => setOpen(l.id)}>
               <span className="list-main">
-                <strong>{l.name}</strong>
+                <strong>{l.name}{!!l.free && <> <span className="pill pill-free">{l.free >= l.qty ? 'zadarmo' : `${fmtNum(l.free)}× zadarmo`}</span></>}</strong>
                 <small>{fmtNum(l.qty)} {l.unit} × {money(l.unitPrice)}{l.coef !== 1 ? ` × ${fmtNum(l.coef)}` : ''}{l.description ? ` · ${l.description}` : ''}</small>
               </span>
               <strong className="num">{money(lineTotal(l))}</strong>

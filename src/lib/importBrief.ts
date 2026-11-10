@@ -1,5 +1,5 @@
 import { briefSections, type BriefValues } from './brief'
-import { fmtNum, slug, uid } from './calc'
+import { applyFreebies, fmtNum, productLine, slug, uid } from './calc'
 import type { BriefAnswer, Line, PriceItem, Quote, Settings } from './types'
 
 const num = (v: unknown) => {
@@ -9,7 +9,7 @@ const num = (v: unknown) => {
 const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
 
 const fromItem = (it: PriceItem, extra: Partial<Line> = {}): Line => ({
-  id: uid(), name: it.name, description: it.note, qty: 1, unit: it.unit, unitPrice: it.price, coef: 1, coefLabel: '', ...extra,
+  id: uid(), ...productLine(it.category, it.name), description: it.note, qty: 1, unit: it.unit, unitPrice: it.price, coef: 1, coefLabel: '', ...extra,
 })
 
 /** Turn the client's answers into a priced quote draft, using the price list. */
@@ -50,7 +50,11 @@ export function briefToQuote(v: BriefValues, prices: PriceItem[], s: Settings): 
   }
   if (v.s_logo) { const it = of('logo')[0]; if (it) lines.push(fromItem(it)) }
   if (v.s_ilustracia || v.s_logo) {
-    for (const p of of('aplikacia')) if (v[`a_${slug(p.name)}`]) lines.push(fromItem(p, { name: `Aplikácia na: ${p.name}` }))
+    // The T-shirt mockup comes with every design, then the products the client picked.
+    const tee = of('aplikacia').find((p) => /trič|tric/i.test(p.name))
+    const picked = of('aplikacia').filter((p) => p !== tee && v[`a_${slug(p.name)}`])
+    for (const p of tee ? [tee, ...picked] : picked) lines.push(fromItem(p))
+    for (const p of of('tlac')) if (v[`t_${slug(p.name)}`]) lines.push(fromItem(p))
   }
   if (v.s_workshop || str(v.w_typ)) {
     const it = of('workshop').find((p) => p.name === str(v.w_typ)) ?? of('workshop')[0]
@@ -70,7 +74,7 @@ export function briefToQuote(v: BriefValues, prices: PriceItem[], s: Settings): 
     intro: str(v.p_popis),
     note: '',
     brief,
-    lines,
+    lines: applyFreebies(lines, s.freebies),
     warnings,
     contractPlace: str(v.p_miesto),
   } as Partial<Quote> & { warnings: string[]; contractPlace: string }

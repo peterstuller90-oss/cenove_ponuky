@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { DEFAULT_PRICES, DEFAULT_SETTINGS } from './defaults'
+import { DEFAULT_PRICES, DEFAULT_SETTINGS, printPrepFor } from './defaults'
 import { totals } from './calc'
 import type { Client, ContractInfo, PriceItem, Quote, Settings } from './types'
 
@@ -21,6 +21,7 @@ const withDefaults = (s: Partial<Settings> | null | undefined): Settings => ({
   ...DEFAULT_SETTINGS, ...s,
   company: { ...DEFAULT_SETTINGS.company, ...s?.company },
   tax: { ...DEFAULT_SETTINGS.tax, ...s?.tax },
+  freebies: { ...DEFAULT_SETTINGS.freebies, ...s?.freebies },
 })
 
 export const DEFAULT_CONTRACT_INFO: ContractInfo = {
@@ -41,6 +42,12 @@ export const normalizeQuote = (q: Quote): Quote => ({
   contract: { ...DEFAULT_CONTRACT_INFO, ...q.contract },
 })
 
+/** Price lists from before print prep was priced separately get one print-prep item per product. */
+function missingPrintPrep(prices: PriceItem[]): PriceItem[] {
+  if (prices.some((p) => p.category === 'tlac')) return []
+  return printPrepFor(prices.filter((p) => p.category === 'aplikacia').sort((a, b) => a.sort - b.sort), Math.max(0, ...prices.map((p) => p.sort)) + 1)
+}
+
 /* ───────── Demo: everything in this browser's localStorage ───────── */
 
 const KEY = 'stullers-ponuky-demo'
@@ -50,7 +57,7 @@ function readLocal(): Data {
     const raw = localStorage.getItem(KEY)
     if (raw) {
       const d = JSON.parse(raw) as Data
-      return { ...d, settings: withDefaults(d.settings), quotes: d.quotes.map(normalizeQuote) }
+      return { ...d, settings: withDefaults(d.settings), prices: [...d.prices, ...missingPrintPrep(d.prices)], quotes: d.quotes.map(normalizeQuote) }
     }
   } catch { /* storage blocked or corrupt: start fresh */ }
   return { settings: DEFAULT_SETTINGS, prices: DEFAULT_PRICES, clients: [], quotes: [] }
@@ -99,6 +106,8 @@ function cloudStore(sb: SupabaseClient): Store {
         check(await sb.from('quote_price_items').insert(DEFAULT_PRICES))
         prices = DEFAULT_PRICES
       }
+      const added = missingPrintPrep(prices)
+      if (added.length) { check(await sb.from('quote_price_items').insert(added)); prices = [...prices, ...added] }
       return {
         settings: withDefaults(check(s)?.data as Settings | undefined),
         prices,

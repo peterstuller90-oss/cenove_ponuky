@@ -1,8 +1,42 @@
-import type { Line, Quote, Settings, TaxSettings } from './types'
+import type { Category, Freebies, Line, Quote, Settings, TaxSettings } from './types'
 
 const r2 = (n: number) => Math.round(n * 100) / 100
 
-export const lineTotal = (l: Line) => r2(l.qty * l.unitPrice * (l.coef || 1))
+export const lineTotal = (l: Line) => r2(Math.max(0, l.qty - (l.free || 0)) * l.unitPrice * (l.coef || 1))
+
+/** Mockup and print-prep lines from the price list: their kind and the name shown on the quote. */
+export function productLine(category: Category, name: string): { kind?: Line['kind']; name: string } {
+  if (category === 'aplikacia') return { kind: 'mockup', name: `Mockup: ${name}` }
+  if (category === 'tlac') return { kind: 'tlac', name: `Príprava do tlače: ${name}` }
+  return { name }
+}
+
+const isTshirt = (l: Line) => /trič|tric|t-shirt/i.test(l.name)
+
+/**
+ * Mark the free units on a quote's lines: mockups on a T-shirt, then mockups on any product,
+ * then print-ready files (in line order). Returns the same array when nothing changed.
+ */
+export function applyFreebies(lines: Line[], f: Freebies): Line[] {
+  const free = new Map<string, number>()
+  const give = (l: Line, left: number) => {
+    const n = Math.max(0, Math.min(Math.floor(l.qty) - (free.get(l.id) ?? 0), left))
+    if (n > 0) free.set(l.id, (free.get(l.id) ?? 0) + n)
+    return left - n
+  }
+  let tee = f.tshirtMockups, other = f.otherMockups, print = f.printPreps
+  for (const l of lines) if (l.kind === 'mockup' && isTshirt(l)) tee = give(l, tee)
+  for (const l of lines) if (l.kind === 'mockup') other = give(l, other)
+  for (const l of lines) if (l.kind === 'tlac') print = give(l, print)
+  let changed = false
+  const out = lines.map((l) => {
+    const n = free.get(l.id) ?? 0
+    if ((l.free ?? 0) === n) return l
+    changed = true
+    return { ...l, free: n }
+  })
+  return changed ? out : lines
+}
 
 /** Health insurance and income tax the authors pay from a fee, and what is left on hand. */
 export function levies(fee: number, t: TaxSettings) {
